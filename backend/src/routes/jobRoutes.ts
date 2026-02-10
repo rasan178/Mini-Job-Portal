@@ -11,7 +11,7 @@ import { requireRole } from "../middleware/role";
 
 const router = Router();
 
-router.get("/", listJobs);
+router.get("/mine", requireAuth, requireRole("employer"), listJobs);
 router.get("/:id", getJob);
 
 router.post("/", requireAuth, requireRole("employer"), createJob);

@@ -9,6 +9,9 @@ export const listJobs = async (req: Request, res: Response) => {
   };
 
   const filter: Record<string, unknown> = {};
+  if (req.user?.role === "employer") {
+    filter.employerId = req.user.id;
+  }
   if (keyword) {
     filter.$or = [
       { title: { $regex: keyword, $options: "i" } },
@@ -37,11 +40,11 @@ export const getJob = async (req: Request, res: Response) => {
 
 export const createJob = async (req: Request, res: Response) => {
   const { title, description, location, jobType, salaryRange } = req.body as {
-    title?: string;
-    description?: string;
-    location?: string;
-    jobType?: "Internship" | "Full-time";
-    salaryRange?: string;
+    title: string;
+    description: string;
+    location: string;
+    jobType: "Internship" | "Full-time";
+    salaryRange: string;
   };
 
   if (!title || !description || !location || !jobType) {
