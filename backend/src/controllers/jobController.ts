@@ -30,9 +30,7 @@ export const listJobs = async (req: Request, res: Response) => {
 };
 
 export const listJobsPublic = async (req: Request, res: Response) => {
-  if (req.user?.role === "employer") {
-    return res.status(403).json({ message: "Employers cannot view all jobs" });
-  }
+ 
 
   const { keyword, location, jobType } = req.query as {
     keyword?: string;
