@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { Application } from "../models/Application";
 import { Job } from "../models/Job";
 import { CandidateProfile } from "../models/CandidateProfile";
+import { User } from "../models/User";
+import { sendApplicationStatusEmail } from "../utils/mailer";
 import { uploadPdfToFirebase } from "../utils/firebaseUpload";
 
 export const applyToJob = async (req: Request, res: Response) => {
@@ -107,6 +109,21 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
 
   application.status = status;
   await application.save();
+
+  // notify candidate by email (best-effort)
+  try {
+    const candidateUser = await User.findById(application.candidateId.toString());
+    if (candidateUser && candidateUser.email) {
+      void sendApplicationStatusEmail({
+        to: candidateUser.email,
+        name: candidateUser.name,
+        jobTitle: job.title,
+        status,
+      });
+    }
+  } catch (err) {
+    console.warn("Failed to send application status email:", (err as Error).message);
+  }
 
   return res.json({ application });
 };

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
+import { sendWelcomeEmail } from "../utils/mailer";
 
 const signToken = (userId: string, email: string, role: "candidate" | "employer" | "admin") => {
   const secret = process.env.JWT_SECRET || "";
@@ -38,6 +39,16 @@ export const register = async (req: Request, res: Response) => {
     role: desiredRole,
     name,
   });
+
+  try {
+    await sendWelcomeEmail({
+      to: user.email,
+      name: user.name,
+      role: user.role,
+    });
+  } catch (error) {
+    console.error("Failed to send welcome email:", error);
+  }
 
   return res.status(201).json({
 
