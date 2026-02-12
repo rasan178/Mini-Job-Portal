@@ -42,18 +42,22 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             )}
             {!loading && user?.role === "candidate" && (
               <>
-                <NavLink href="/candidate" label="Candidate Dashboard" />
+                <NavLink href="/candidate" label="Dashboard" />
                 <NavLink href="/applications" label="My Applications" />
               </>
             )}
             {!loading && user?.role === "employer" && (
-              <NavLink href="/employer" label="Employer Dashboard" />
+              <NavLink href="/employer" label="Dashboard" />
             )}
             {!loading && user?.role === "admin" && (
               <NavLink href="/admin" label="Admin" />
             )}
             {!loading && user && (
-              <button className="button ghost small" onClick={handleLogout} type="button">
+              <button
+                className="button ghost small"
+                onClick={handleLogout}
+                type="button"
+              >
                 Logout
               </button>
             )}

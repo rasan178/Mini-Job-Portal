@@ -29,13 +29,19 @@ export const upsertCandidateProfile = (token: string, payload: Partial<Candidate
     body: JSON.stringify(payload),
   });
 
-export const uploadCandidateCv = (token: string, formData: FormData) =>
-  apiFetch<{ profile: CandidateProfile }>("/api/candidate/profile/cv", {
+export const uploadCv = (token: string, formData: FormData) =>
+  apiFetch<{ profile: CandidateProfile }>("/api/uploads/cv", {
     method: "POST",
     token,
     body: formData,
     isFormData: true,
   });
+
+export const getCvs = (token: string) =>
+  apiFetch<{ cvs: Array<{ _id: string; url: string; fileName?: string; uploadedAt: string }> }>("/api/uploads/cv", { token });
+
+export const deleteCv = (token: string, cvId: string) =>
+  apiFetch<{ message: string }>(`/api/uploads/cv/${cvId}`, { method: "DELETE", token });
 
 export const getEmployerProfile = (token: string) =>
   apiFetch<{ profile: EmployerProfile | null }>("/api/employer/profile", { token });
@@ -82,6 +88,9 @@ export const applyToJob = (token: string, jobId: string, formData: FormData) =>
 
 export const listMyApplications = (token: string) =>
   apiFetch<{ applications: Application[] }>("/api/applications/my", { token });
+
+export const deleteMyApplication = (token: string, appId: string) =>
+  apiFetch<{ message: string }>(`/api/applications/${appId}`, { method: "DELETE", token });
 
 export const listApplicantsForJob = (token: string, jobId: string) =>
   apiFetch<{ applications: Application[] }>(`/api/jobs/${jobId}/applications`, { token });

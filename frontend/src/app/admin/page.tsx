@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { adminDeleteJob, listAdminJobs } from "@/lib/api";
 import type { Job } from "@/lib/types";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export default function AdminPage() {
   const { token, user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
 
   const isAdmin = useMemo(() => {
     const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.toLowerCase();
@@ -28,7 +31,7 @@ export default function AdminPage() {
       const data = await listAdminJobs(token);
       setJobs(data.jobs);
     } catch (err) {
-      setError((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -41,11 +44,14 @@ export default function AdminPage() {
   const onDelete = async (id: string) => {
     if (!token) return;
     try {
+      setDeleting(true);
       await adminDeleteJob(token, id);
       setJobs((prev) => prev.filter((job) => job._id !== id));
-      setError(null);
+      toast.success("Job deleted.");
     } catch (err) {
-      setError((err as Error).message);
+      toast.error((err as Error).message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -57,7 +63,6 @@ export default function AdminPage() {
     <div className="stack">
       <h2>Admin Moderation</h2>
       {loading && <div className="notice">Loading jobs...</div>}
-      {error && <div className="notice">{error}</div>}
       <div className="card">
         <table className="table">
           <thead>
@@ -75,7 +80,12 @@ export default function AdminPage() {
                 <td>{job.location}</td>
                 <td>{job.jobType}</td>
                 <td>
-                  <button className="button ghost small" type="button" onClick={() => onDelete(job._id)}>
+                  <button
+                    className="button ghost small"
+                    style={{ paddingTop: 12, paddingBottom: 12}}
+                    type="button"
+                    onClick={() => setJobToDelete(job)}
+                  >
                     Delete
                   </button>
                 </td>
@@ -84,6 +94,19 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+      <ConfirmModal
+        open={!!jobToDelete}
+        title="Delete Job?"
+        description={`This will permanently delete "${jobToDelete?.title || "this job"}".`}
+        confirmLabel="Delete Job"
+        isProcessing={deleting}
+        onCancel={() => setJobToDelete(null)}
+        onConfirm={async () => {
+          if (!jobToDelete) return;
+          await onDelete(jobToDelete._id);
+          setJobToDelete(null);
+        }}
+      />
     </div>
   );
 }

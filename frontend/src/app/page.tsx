@@ -3,18 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { healthCheck } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<"idle" | "ok" | "down">("idle");
-  const [islogged, setIsLogged] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      setIsLogged(true);
-    } else {
-      setIsLogged(false);
-    }
-
     healthCheck()
       .then(() => setStatus("ok"))
       .catch(() => setStatus("down"));
@@ -34,7 +29,7 @@ export default function HomePage() {
             <Link className="button" href="/jobs">
               Browse Jobs
             </Link>
-            {islogged && 
+            {!user && 
             <Link className="button ghost" href="/register">
               Create Account
             </Link>}

@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { listMyApplications } from "@/lib/api";
+import { deleteMyApplication, listMyApplications } from "@/lib/api";
 import type { Application } from "@/lib/types";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 export default function ApplicationsPage() {
   const { token, user } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [appToDelete, setAppToDelete] = useState<Application | null>(null);
 
   const loadApplications = useCallback(async () => {
     if (!token) {
@@ -22,7 +25,7 @@ export default function ApplicationsPage() {
       const data = await listMyApplications(token);
       setApplications(data.applications);
     } catch (err) {
-      setError((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -31,6 +34,20 @@ export default function ApplicationsPage() {
   useEffect(() => {
     void loadApplications();
   }, [loadApplications]);
+
+  const onDeleteApplication = async (appId: string) => {
+    if (!token) return;
+    try {
+      setDeleting(true);
+      await deleteMyApplication(token, appId);
+      setApplications((prev) => prev.filter((app) => app._id !== appId));
+      toast.success("Application deleted.");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (!user) {
     return <div className="notice">Login to see your applications.</div>;
@@ -44,7 +61,6 @@ export default function ApplicationsPage() {
     <div className="stack">
       <h2>My Applications</h2>
       {loading && <div className="notice">Loading applications...</div>}
-      {error && <div className="notice">{error}</div>}
       <div className="card">
         <table className="table">
           <thead>
@@ -53,6 +69,7 @@ export default function ApplicationsPage() {
               <th>Location</th>
               <th>Type</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -64,12 +81,53 @@ export default function ApplicationsPage() {
                   <td>{job?.location || "-"}</td>
                   <td>{job?.jobType || "-"}</td>
                   <td>{app.status}</td>
+                  <td>
+                    <button
+                      className="button ghost small"
+                      type="button"
+                      aria-label="Delete application"
+                      title="Delete application"
+                      onClick={() => setAppToDelete(app)}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="white"
+                        stroke="red"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <ConfirmModal
+        open={!!appToDelete}
+        title="Delete Application?"
+        description="This will permanently remove your application for this job."
+        confirmLabel="Delete"
+        isProcessing={deleting}
+        onCancel={() => setAppToDelete(null)}
+        onConfirm={async () => {
+          if (!appToDelete) return;
+          await onDeleteApplication(appToDelete._id);
+          setAppToDelete(null);
+        }}
+      />
     </div>
   );
 }

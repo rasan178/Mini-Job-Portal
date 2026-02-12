@@ -2,16 +2,22 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getCandidateProfile, upsertCandidateProfile, uploadCandidateCv } from "@/lib/api";
+import { getCandidateProfile, upsertCandidateProfile, uploadCv, getCvs, deleteCv } from "@/lib/api";
 import type { CandidateProfile } from "@/lib/types";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ConfirmModal";
+
+type CvItem = { _id: string; url: string; fileName?: string; uploadedAt: string };
 
 export default function CandidateDashboard() {
   const { token, user } = useAuth();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [skillsInput, setSkillsInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvs, setCvs] = useState<CvItem[] | null>(null);
+  const [cvToDelete, setCvToDelete] = useState<CvItem | null>(null);
   const cvInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -21,14 +27,18 @@ export default function CandidateDashboard() {
         setProfile(data.profile);
         setSkillsInput(data.profile?.skills?.join(", ") || "");
       })
-      .catch((err) => setMessage((err as Error).message));
+      .catch((err) => toast.error((err as Error).message));
+    // load cvs
+    getCvs(token)
+      .then((data) => setCvs(data.cvs || []))
+      .catch(() => setCvs([]));
   }, [token]);
 
   const onSave = async (event: FormEvent) => {
     event.preventDefault();
     if (!token) return;
 
-    setLoading(true);
+    setLoadingProfile(true);
     try {
       const payload = {
         phone: profile?.phone || "",
@@ -41,17 +51,17 @@ export default function CandidateDashboard() {
       } as Partial<CandidateProfile>;
       const data = await upsertCandidateProfile(token, payload);
       setProfile(data.profile);
-      setMessage("Profile updated.");
+      toast.success("Profile updated.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
-      setLoading(false);
+      setLoadingProfile(false);
     }
   };
 
   const onUploadCv = async () => {
     if (!token || !cvFile) {
-      setMessage("Select a PDF file first.");
+      toast.error("Select a PDF file first.");
       return;
     }
 
@@ -59,11 +69,28 @@ export default function CandidateDashboard() {
     formData.append("cv", cvFile);
     try {
       setLoading(true);
-      const data = await uploadCandidateCv(token, formData);
-      setProfile(data.profile);
-      setMessage("CV uploaded.");
+      await uploadCv(token, formData);
+      // refresh list
+      const data = await getCvs(token);
+      setCvs(data.cvs || []);
+      toast.success("CV uploaded.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDeleteCv = async (id: string) => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      await deleteCv(token, id);
+      const data = await getCvs(token);
+      setCvs(data.cvs || []);
+      toast.success("CV deleted.");
+    } catch (err) {
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -117,9 +144,13 @@ export default function CandidateDashboard() {
             onChange={(e) => setProfile({ ...( profile || { skills: [] }), bio: e.target.value })}
           />
         </div>
-        {message && <div className="notice">{message}</div>}
-        <button className="button" type="submit" disabled={loading}>
-          {loading ? "Saving..." : "Save profile"}
+        <button
+          className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+          style={{ paddingTop: 12, paddingBottom: 12 }}
+          type="submit"
+          disabled={loadingProfile}
+        >
+          {loadingProfile ? "Saving..." : "Save profile"}
         </button>
       </form>
 
@@ -134,20 +165,81 @@ export default function CandidateDashboard() {
           onChange={(e) => setCvFile(e.target.files?.[0] || null)}
         />
         <div className="flex flex-col flex-wrap items-center justify-center gap-3 border rounded-lg px-4 py-3 min-h-14 h-full border-[#EEEDED]">
-          <button className="button ghost small" type="button" onClick={() => cvInputRef.current?.click()}>
+          <button
+            className="button ghost small"
+            type="button"
+            onClick={() => cvInputRef.current?.click()}
+          >
             Choose File
           </button>
           <span className="status">{cvFile ? cvFile.name : "No file chosen"}</span>
         </div>
-        {profile?.cvUrl && (
-          <a className="button ghost small" href={profile.cvUrl} target="_blank" rel="noreferrer">
-            View current CV
-          </a>
-        )}
-        <button className="button" type="button" onClick={onUploadCv} disabled={loading}>
+        <div className="flex flex-col gap-2 w-full">
+          {cvs && cvs.length > 0 ? (
+            cvs.map((c) => (
+              <div key={c._id} className="flex items-center justify-between gap-2">
+                <div className="status truncate max-w-[60%]" title={c.fileName || "CV.pdf"}>
+                  {c.fileName || "CV.pdf"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <a className="button ghost small" href={c.url} target="_blank" rel="noreferrer">
+                    View CV
+                  </a>
+                  <button
+                    className="button ghost small"
+                    style={{ paddingTop: 12, paddingBottom: 12 }}
+                    type="button"
+                    onClick={() => setCvToDelete(c)}
+                  >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="white"
+                        stroke="red"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="status">No CVs uploaded</div>
+          )}
+        </div>
+        <button
+          className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+          style={{ paddingTop: 12, paddingBottom: 12 }}
+          type="button"
+          onClick={onUploadCv}
+          disabled={loading}
+        >
           {loading ? "Uploading..." : "Upload CV"}
         </button>
       </div>
+      <ConfirmModal
+        open={!!cvToDelete}
+        title="Delete CV?"
+        description={`This will permanently remove ${cvToDelete?.fileName || "this CV"}.`}
+        confirmLabel="Delete CV"
+        isProcessing={loading}
+        onCancel={() => setCvToDelete(null)}
+        onConfirm={async () => {
+          if (!cvToDelete) return;
+          await onDeleteCv(cvToDelete._id);
+          setCvToDelete(null);
+        }}
+      />
     </div>
   );
 }

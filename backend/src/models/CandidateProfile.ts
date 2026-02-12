@@ -1,12 +1,19 @@
 import { Schema, model, Types } from "mongoose";
 
+export interface ICV {
+  _id?: Types.ObjectId;
+  url: string;
+  fileName?: string;
+  uploadedAt: Date;
+}
+
 export interface ICandidateProfile {
   userId: Types.ObjectId;
   phone?: string;
   location?: string;
   skills: string[];
   bio?: string;
-  cvUrl?: string;
+  cvs: ICV[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,7 +25,13 @@ const candidateProfileSchema = new Schema<ICandidateProfile>(
     location: { type: String, trim: true },
     skills: { type: [String], default: [] },
     bio: { type: String, trim: true },
-    cvUrl: { type: String, trim: true },
+    cvs: [
+      {
+        url: { type: String, required: true },
+        fileName: { type: String, trim: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -35,18 +35,3 @@ export const upsertCandidateProfile = async (req: Request, res: Response) => {
 
   return res.json({ profile });
 };
-
-export const uploadCandidateCv = async (req: Request, res: Response) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "CV PDF is required" });
-  }
-
-  const cvUrl = `/uploads/${req.file.filename}`;
-  const profile = await CandidateProfile.findOneAndUpdate(
-    { userId: req.user?.id },
-    { cvUrl },
-    { new: true, upsert: true }
-  );
-
-  return res.json({ profile });
-};

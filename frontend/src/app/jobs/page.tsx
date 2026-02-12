@@ -5,18 +5,17 @@ import Link from "next/link";
 import { listJobsPublic } from "@/lib/api";
 import type { Job } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function JobsPage() {
   const { token, user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filters, setFilters] = useState({ keyword: "", location: "", jobType: "" });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const loadJobs = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const data = await listJobsPublic(
         {
           keyword: filters.keyword || undefined,
@@ -27,11 +26,16 @@ export default function JobsPage() {
       );
       setJobs(data.jobs || []);
     } catch (err) {
-      setError((err as Error).message);
+      const message = (err as Error).message;
+      toast.error(
+        user?.role === "employer" && message.includes("Employers cannot view all jobs")
+          ? "Employers should use the Employer Dashboard to view their jobs."
+          : message
+      );
     } finally {
       setLoading(false);
     }
-  }, [filters, token]);
+  }, [filters, token, user?.role]);
 
   useEffect(() => {
     void loadJobs();
@@ -72,20 +76,18 @@ export default function JobsPage() {
           </div>
         </div>
         <div style={{ marginTop: "16px" }}>
-          <button className="button" type="button" onClick={loadJobs}>
+          <button
+            className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+            style={{ paddingTop: 12, paddingBottom: 12 }}
+            type="button"
+            onClick={loadJobs}
+          >
             Apply filters
           </button>
         </div>
       </div>
 
       {loading && <div className="notice">Loading jobs...</div>}
-      {error && (
-        <div className="notice">
-          {user?.role === "employer" && error.includes("Employers cannot view all jobs")
-            ? "Employers should use the Employer Dashboard to view their jobs."
-            : error}
-        </div>
-      )}
       {jobs.length === 0 && !loading && <div className="notice">No jobs match your filters.</div>}
 
       <div className="grid grid-2">

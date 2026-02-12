@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Application } from "../models/Application";
 import { Job } from "../models/Job";
 import { CandidateProfile } from "../models/CandidateProfile";
+import { uploadPdfToFirebase } from "../utils/firebaseUpload";
 
 export const applyToJob = async (req: Request, res: Response) => {
   const job = await Job.findById(req.params.id);
@@ -17,16 +18,33 @@ export const applyToJob = async (req: Request, res: Response) => {
     return res.status(409).json({ message: "Already applied to this job" });
   }
 
-  const { message } = req.body as { message?: string };
-  let cvUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
-
-  if (!cvUrl) {
-    const profile = await CandidateProfile.findOne({ userId: req.user?.id });
-    cvUrl = profile?.cvUrl;
+  const { message, selectedCvId } = req.body as { message?: string; selectedCvId?: string };
+  let cvUrl: string | undefined;
+  if (req.file) {
+    const userId = req.user?.id.toString();
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    cvUrl = await uploadPdfToFirebase(req.file, `applications/${userId}`);
   }
 
   if (!cvUrl) {
-    return res.status(400).json({ message: "CV is required to apply" });
+    const profile = await CandidateProfile.findOne({ userId: req.user?.id });
+    if (profile?.cvs?.length) {
+      if (selectedCvId) {
+        const selectedCv = profile.cvs.find((cv) => cv._id?.toString() === selectedCvId);
+        if (!selectedCv) {
+          return res.status(400).json({ message: "Selected CV not found" });
+        }
+        cvUrl = selectedCv.url;
+      } else {
+        cvUrl = profile.cvs[profile.cvs.length - 1]?.url;
+      }
+    }
+  }
+
+  if (!cvUrl) {
+    return res.status(400).json({ message: "CV is required to apply. Upload one or select an existing CV." });
   }
 
   const application = await Application.create({
@@ -91,4 +109,18 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
   await application.save();
 
   return res.json({ application });
+};
+
+export const deleteMyApplication = async (req: Request, res: Response) => {
+  const application = await Application.findById(req.params.id);
+  if (!application) {
+    return res.status(404).json({ message: "Application not found" });
+  }
+
+  if (application.candidateId.toString() !== req.user?.id.toString()) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  await application.deleteOne();
+  return res.json({ message: "Application deleted" });
 };

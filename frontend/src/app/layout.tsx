@@ -3,6 +3,7 @@ import { Playfair_Display, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { AppShell } from "@/components/AppShell";
+import { Toaster } from "sonner";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-sans",
@@ -29,6 +30,7 @@ export default function RootLayout({
       <body className={`${spaceGrotesk.variable} ${playfair.variable}`}>
         <AuthProvider>
           <AppShell>{children}</AppShell>
+          <Toaster position="bottom-right" richColors closeButton />
         </AuthProvider>
       </body>
     </html>

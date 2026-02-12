@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   applyToJob,
+  deleteMyApplication,
   listApplicantsForJob,
   listMyApplications,
   updateApplicationStatus,
@@ -38,6 +39,13 @@ router.patch(
   requireAuth,
   requireRole("employer"),
   updateApplicationStatus
+);
+
+router.delete(
+  "/applications/:id",
+  requireAuth,
+  requireRole("candidate"),
+  deleteMyApplication
 );
 
 export default router;

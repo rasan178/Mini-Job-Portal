@@ -13,6 +13,8 @@ import {
   upsertEmployerProfile,
 } from "@/lib/api";
 import type { Application, EmployerProfile, Job, JobType } from "@/lib/types";
+import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 type JobFormState = {
   title: string;
@@ -27,7 +29,6 @@ export default function EmployerDashboard() {
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<JobFormState>({
     title: "",
     description: "",
@@ -37,6 +38,7 @@ export default function EmployerDashboard() {
   });
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [applicants, setApplicants] = useState<Record<string, Application[]>>({});
+  const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
 
   const loadAll = useCallback(async () => {
     if (!token) return;
@@ -47,9 +49,8 @@ export default function EmployerDashboard() {
       ]);
       setProfile(profileData.profile);
       setJobs(jobsData.jobs || []);
-      setMessage(null);
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     }
   }, [token]);
 
@@ -64,9 +65,9 @@ export default function EmployerDashboard() {
     try {
       const data = await upsertEmployerProfile(token, profile || { companyName: "" });
       setProfile(data.profile);
-      setMessage("Profile updated.");
+      toast.success("Profile updated.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -80,9 +81,9 @@ export default function EmployerDashboard() {
       const data = await createJob(token, createForm);
       setJobs((prev) => [data.job, ...prev]);
       setCreateForm({ title: "", description: "", location: "", jobType: "Internship", salaryRange: "" });
-      setMessage("Job created.");
+      toast.success("Job created.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -95,9 +96,9 @@ export default function EmployerDashboard() {
       const data = await updateJob(token, job._id, job);
       setJobs((prev) => prev.map((item) => (item._id === job._id ? data.job : item)));
       setEditingJobId(null);
-      setMessage("Job updated.");
+      toast.success("Job updated.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -109,9 +110,9 @@ export default function EmployerDashboard() {
     try {
       await deleteJob(token, jobId);
       setJobs((prev) => prev.filter((job) => job._id !== jobId));
-      setMessage("Job deleted.");
+      toast.success("Job deleted.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -122,9 +123,9 @@ export default function EmployerDashboard() {
     try {
       const data = await listApplicantsForJob(token, jobId);
       setApplicants((prev) => ({ ...prev, [jobId]: data.applications }));
-      setMessage("Applicants loaded.");
+      toast.success("Applicants loaded.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     }
   };
 
@@ -136,9 +137,9 @@ export default function EmployerDashboard() {
         ...prev,
         [jobId]: prev[jobId]?.map((app) => (app._id === data.application._id ? data.application : app)) || [],
       }));
-      setMessage("Application status updated.");
+      toast.success("Application status updated.");
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     }
   };
 
@@ -181,8 +182,11 @@ export default function EmployerDashboard() {
               onChange={(e) => setProfile({ ...(profile || { companyName: "" }), website: e.target.value })}
             />
           </div>
-          {message && <div className="notice">{message}</div>}
-          <button className="button" type="submit" disabled={loading}>
+          <button
+            className="button"
+            type="submit"
+            disabled={loading}
+          >
             {loading ? "Saving..." : "Save profile"}
           </button>
         </form>
@@ -232,7 +236,12 @@ export default function EmployerDashboard() {
               onChange={(e) => setCreateForm({ ...createForm, salaryRange: e.target.value })}
             />
           </div>
-          <button className="button" type="submit" disabled={loading}>
+          <button
+            className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+            style={{ paddingTop: 12, paddingBottom: 12 }}
+            type="submit"
+            disabled={loading}
+          >
             {loading ? "Posting..." : "Create job"}
           </button>
         </form>
@@ -272,7 +281,12 @@ export default function EmployerDashboard() {
                     )
                   }
                 />
-                <button className="button" type="button" onClick={() => onUpdateJob(job)}>
+                <button
+                  className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                  style={{ paddingTop: 12, paddingBottom: 12 }}
+                  type="button"
+                  onClick={() => onUpdateJob(job)}
+                >
                   Save
                 </button>
               </div>
@@ -281,13 +295,28 @@ export default function EmployerDashboard() {
                 <h3>{job.title}</h3>
                 <p className="status">{job.location} · {job.jobType}</p>
                 <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
-                  <button className="button ghost small" type="button" onClick={() => setEditingJobId(job._id)}>
+                  <button
+                    className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                    style={{ paddingTop: 12, paddingBottom: 12 }}
+                    type="button"
+                    onClick={() => setEditingJobId(job._id)}
+                  >
                     Edit
                   </button>
-                  <button className="button ghost small" type="button" onClick={() => onDeleteJob(job._id)}>
+                  <button
+                    className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                    style={{ paddingTop: 12, paddingBottom: 12 }}
+                    type="button"
+                    onClick={() => setJobToDelete(job)}
+                  >
                     Delete
                   </button>
-                  <button className="button ghost small" type="button" onClick={() => loadApplicants(job._id)}>
+                  <button
+                    className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                    style={{ paddingTop: 12, paddingBottom: 12 }}
+                    type="button"
+                    onClick={() => loadApplicants(job._id)}
+                  >
                     View applicants
                   </button>
                 </div>
@@ -332,6 +361,19 @@ export default function EmployerDashboard() {
           </div>
         ))}
       </div>
+      <ConfirmModal
+        open={!!jobToDelete}
+        title="Delete Job?"
+        description={`This will permanently delete "${jobToDelete?.title || "this job"}".`}
+        confirmLabel="Delete Job"
+        isProcessing={loading}
+        onCancel={() => setJobToDelete(null)}
+        onConfirm={async () => {
+          if (!jobToDelete) return;
+          await onDeleteJob(jobToDelete._id);
+          setJobToDelete(null);
+        }}
+      />
     </div>
   );
 }
