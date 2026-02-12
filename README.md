@@ -181,6 +181,3 @@ Notes
 - If Firebase uploads fail locally, ensure `FIREBASE_PRIVATE_KEY` and other credentials are correct or set `GOOGLE_APPLICATION_CREDENTIALS` to your service account JSON path.
 - To quickly inspect MongoDB data, use MongoDB Compass or `mongo` shell and look at collections: `users`, `candidateprofiles`, `employerprofiles`, `jobs`, `applications`.
 
-----
-
-If you want, I can also add a small `backend/scripts/seed.ts` that creates the three test accounts and example data — would you like that?
