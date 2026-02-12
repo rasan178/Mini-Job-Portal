@@ -12,7 +12,9 @@ type CvItem = { _id: string; url: string; fileName?: string; uploadedAt: string 
 export default function CandidateDashboard() {
   const { token, user } = useAuth();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [originalProfile, setOriginalProfile] = useState<CandidateProfile | null>(null);
   const [skillsInput, setSkillsInput] = useState("");
+  const [originalSkillsInput, setOriginalSkillsInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -20,12 +22,24 @@ export default function CandidateDashboard() {
   const [cvToDelete, setCvToDelete] = useState<CvItem | null>(null);
   const cvInputRef = useRef<HTMLInputElement | null>(null);
 
+  const hasChanges = () => {
+    if (!originalProfile) return false;
+    return (
+      profile?.phone !== originalProfile.phone ||
+      profile?.location !== originalProfile.location ||
+      profile?.bio !== originalProfile.bio ||
+      skillsInput !== originalSkillsInput
+    );
+  };
+
   useEffect(() => {
     if (!token) return;
     getCandidateProfile(token)
       .then((data) => {
         setProfile(data.profile);
+        setOriginalProfile(data.profile);
         setSkillsInput(data.profile?.skills?.join(", ") || "");
+        setOriginalSkillsInput(data.profile?.skills?.join(", ") || "");
       })
       .catch((err) => toast.error((err as Error).message));
     // load cvs
@@ -51,6 +65,8 @@ export default function CandidateDashboard() {
       } as Partial<CandidateProfile>;
       const data = await upsertCandidateProfile(token, payload);
       setProfile(data.profile);
+      setOriginalProfile(data.profile);
+      setOriginalSkillsInput(skillsInput);
       toast.success("Profile updated.");
     } catch (err) {
       toast.error((err as Error).message);
@@ -73,6 +89,7 @@ export default function CandidateDashboard() {
       // refresh list
       const data = await getCvs(token);
       setCvs(data.cvs || []);
+      setCvFile(null);
       toast.success("CV uploaded.");
     } catch (err) {
       toast.error((err as Error).message);
@@ -146,9 +163,9 @@ export default function CandidateDashboard() {
         </div>
         <button
           className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-          style={{ paddingTop: 12, paddingBottom: 12 }}
+          style={{ paddingTop: 12, paddingBottom: 12, opacity: !hasChanges() ? 0.5 : 1, cursor: !hasChanges() ? "not-allowed" : "pointer" }}
           type="submit"
-          disabled={loadingProfile}
+          disabled={loadingProfile || !hasChanges()}
         >
           {loadingProfile ? "Saving..." : "Save profile"}
         </button>
@@ -219,10 +236,10 @@ export default function CandidateDashboard() {
         </div>
         <button
           className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-          style={{ paddingTop: 12, paddingBottom: 12 }}
+          style={{ paddingTop: 12, paddingBottom: 12, opacity: !cvFile ? 0.5 : 1, cursor: !cvFile ? "not-allowed" : "pointer" }}
           type="button"
           onClick={onUploadCv}
-          disabled={loading}
+          disabled={loading || !cvFile}
         >
           {loading ? "Uploading..." : "Upload CV"}
         </button>
