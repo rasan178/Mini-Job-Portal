@@ -8,10 +8,10 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
 
 export const upsertCandidateProfile = async (req: Request, res: Response) => {
   const { phone, location, skills, bio } = req.body as {
-    phone?: string;
-    location?: string;
-    skills?: string[] | string;
-    bio?: string;
+    phone: string;
+    location: string;
+    skills: string[] | string;
+    bio: string;
   };
 
   const normalizedSkills = Array.isArray(skills)

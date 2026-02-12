@@ -29,6 +29,35 @@ export const listJobs = async (req: Request, res: Response) => {
   return res.json({ jobs });
 };
 
+export const listJobsPublic = async (req: Request, res: Response) => {
+  if (req.user?.role === "employer") {
+    return res.status(403).json({ message: "Employers cannot view all jobs" });
+  }
+
+  const { keyword, location, jobType } = req.query as {
+    keyword?: string;
+    location?: string;
+    jobType?: string;
+  };
+
+  const filter: Record<string, unknown> = {};
+  if (keyword) {
+    filter.$or = [
+      { title: { $regex: keyword, $options: "i" } },
+      { description: { $regex: keyword, $options: "i" } },
+    ];
+  }
+  if (location) {
+    filter.location = { $regex: location, $options: "i" };
+  }
+  if (jobType) {
+    filter.jobType = jobType;
+  }
+
+  const jobs = await Job.find(filter).sort({ createdAt: -1 });
+  return res.json({ jobs });
+};
+
 export const getJob = async (req: Request, res: Response) => {
   const job = await Job.findById(req.params.id);
   if (!job) {

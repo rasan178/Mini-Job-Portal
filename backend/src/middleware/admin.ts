@@ -10,7 +10,7 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
   const matchesEmail = adminEmail ? req.user.email.toLowerCase() === adminEmail : false;
 
   if (!isAdmin && !matchesEmail) {
-    return res.status(401).json({ message: "Admin access required" });
+    return res.status(403).json({ message: "Admin access required" });
   }
 
   return next();

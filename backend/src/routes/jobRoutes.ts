@@ -4,13 +4,16 @@ import {
   deleteJob,
   getJob,
   listJobs,
+  listJobsPublic,
   updateJob,
 } from "../controllers/jobController";
 import { requireAuth } from "../middleware/auth";
 import { requireRole } from "../middleware/role";
+import { optionalAuth } from "../middleware/optionalAuth";
 
 const router = Router();
 
+router.get("/", optionalAuth, listJobsPublic);
 router.get("/mine", requireAuth, requireRole("employer"), listJobs);
 router.get("/:id", getJob);
 
