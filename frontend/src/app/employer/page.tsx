@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import {
   createJob,
   deleteJob,
@@ -16,10 +17,10 @@ import type { Application, EmployerProfile, Job } from "@/lib/types";
 
 export default function EmployerDashboard() {
   const { token, user } = useAuth();
+  const { pushToast } = useToast();
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({
     title: "",
     description: "",
@@ -39,10 +40,11 @@ export default function EmployerDashboard() {
       ]);
       setProfile(profileData.profile);
       setJobs(jobsData.jobs || []);
+      pushToast("Employer dashboard loaded.", "info");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     }
-  }, [token]);
+  }, [token, pushToast]);
 
   useEffect(() => {
     void loadAll();
@@ -52,13 +54,12 @@ export default function EmployerDashboard() {
     event.preventDefault();
     if (!token) return;
     setLoading(true);
-    setMessage(null);
     try {
       const data = await upsertEmployerProfile(token, profile || { companyName: "" });
       setProfile(data.profile);
-      setMessage("Profile saved.");
+      pushToast("Profile updated.", "success");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -68,14 +69,13 @@ export default function EmployerDashboard() {
     event.preventDefault();
     if (!token) return;
     setLoading(true);
-    setMessage(null);
     try {
       const data = await createJob(token, createForm);
       setJobs((prev) => [data.job, ...prev]);
       setCreateForm({ title: "", description: "", location: "", jobType: "Internship", salaryRange: "" });
-      setMessage("Job created.");
+      pushToast("Job created.", "success");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -88,8 +88,9 @@ export default function EmployerDashboard() {
       const data = await updateJob(token, job._id, job);
       setJobs((prev) => prev.map((item) => (item._id === job._id ? data.job : item)));
       setEditingJobId(null);
+      pushToast("Job updated.", "success");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -97,12 +98,15 @@ export default function EmployerDashboard() {
 
   const onDeleteJob = async (jobId: string) => {
     if (!token) return;
+    const confirmed = window.confirm("Delete this job permanently?");
+    if (!confirmed) return;
     setLoading(true);
     try {
       await deleteJob(token, jobId);
       setJobs((prev) => prev.filter((job) => job._id !== jobId));
+      pushToast("Job deleted.", "success");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -110,17 +114,27 @@ export default function EmployerDashboard() {
 
   const loadApplicants = async (jobId: string) => {
     if (!token) return;
-    const data = await listApplicantsForJob(token, jobId);
-    setApplicants((prev) => ({ ...prev, [jobId]: data.applications }));
+    try {
+      const data = await listApplicantsForJob(token, jobId);
+      setApplicants((prev) => ({ ...prev, [jobId]: data.applications }));
+      pushToast("Applicants loaded.", "info");
+    } catch (err) {
+      pushToast((err as Error).message, "error");
+    }
   };
 
   const onStatusChange = async (appId: string, jobId: string, status: string) => {
     if (!token) return;
-    const data = await updateApplicationStatus(token, appId, status);
-    setApplicants((prev) => ({
-      ...prev,
-      [jobId]: prev[jobId]?.map((app) => (app._id === data.application._id ? data.application : app)) || [],
-    }));
+    try {
+      const data = await updateApplicationStatus(token, appId, status);
+      setApplicants((prev) => ({
+        ...prev,
+        [jobId]: prev[jobId]?.map((app) => (app._id === data.application._id ? data.application : app)) || [],
+      }));
+      pushToast("Application status updated.", "success");
+    } catch (err) {
+      pushToast((err as Error).message, "error");
+    }
   };
 
   const roleMessage = useMemo(() => {
@@ -162,7 +176,6 @@ export default function EmployerDashboard() {
               onChange={(e) => setProfile({ ...(profile || { companyName: "" }), website: e.target.value })}
             />
           </div>
-          {message && <div className="notice">{message}</div>}
           <button className="button" type="submit" disabled={loading}>
             {loading ? "Saving..." : "Save profile"}
           </button>
@@ -262,7 +275,14 @@ export default function EmployerDashboard() {
                 <h3>{job.title}</h3>
                 <p className="status">{job.location} · {job.jobType}</p>
                 <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
-                  <button className="button ghost small" type="button" onClick={() => setEditingJobId(job._id)}>
+                  <button
+                    className="button ghost small"
+                    type="button"
+                    onClick={() => {
+                      setEditingJobId(job._id);
+                      pushToast("Edit mode enabled.", "info");
+                    }}
+                  >
                     Edit
                   </button>
                   <button className="button ghost small" type="button" onClick={() => onDeleteJob(job._id)}>

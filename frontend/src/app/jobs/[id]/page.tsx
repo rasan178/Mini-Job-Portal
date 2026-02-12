@@ -6,17 +6,18 @@ import Link from "next/link";
 import { applyToJob, getJob } from "@/lib/api";
 import type { Job } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 
 export default function JobDetailPage() {
   const params = useParams<{ id: string }>();
   const jobId = params?.id;
   const { user, token } = useAuth();
+  const { pushToast } = useToast();
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [submitState, setSubmitState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [submitState, setSubmitState] = useState<"idle" | "sending">("idle");
 
   const loadJob = useCallback(async () => {
     if (!jobId) return;
@@ -25,11 +26,11 @@ export default function JobDetailPage() {
       const data = await getJob(jobId, token || undefined);
       setJob(data.job);
     } catch (err) {
-      setError((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
-  }, [jobId, token]);
+  }, [jobId, token, pushToast]);
 
   useEffect(() => {
     void loadJob();
@@ -38,7 +39,7 @@ export default function JobDetailPage() {
   const onApply = async (event: FormEvent) => {
     event.preventDefault();
     if (!token || !jobId) {
-      setError("Please login as a candidate to apply.");
+      pushToast("Please login as a candidate to apply.", "error");
       return;
     }
 
@@ -48,10 +49,13 @@ export default function JobDetailPage() {
       if (message) formData.append("message", message);
       if (file) formData.append("cv", file);
       await applyToJob(token, jobId, formData);
-      setSubmitState("done");
+      pushToast("Application submitted.", "success");
+      setMessage("");
+      setFile(null);
     } catch (err) {
-      setError((err as Error).message);
-      setSubmitState("error");
+      pushToast((err as Error).message, "error");
+    } finally {
+      setSubmitState("idle");
     }
   };
 
@@ -100,8 +104,6 @@ export default function JobDetailPage() {
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
             </div>
-            {submitState === "done" && <div className="notice">Application submitted.</div>}
-            {submitState === "error" && error && <div className="notice">{error}</div>}
             <button className="button" type="submit" disabled={submitState === "sending"}>
               {submitState === "sending" ? "Submitting..." : "Apply"}
             </button>

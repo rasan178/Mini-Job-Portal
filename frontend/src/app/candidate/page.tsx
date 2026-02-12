@@ -2,15 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { getCandidateProfile, upsertCandidateProfile, uploadCandidateCv } from "@/lib/api";
 import type { CandidateProfile } from "@/lib/types";
 
 export default function CandidateDashboard() {
   const { token, user } = useAuth();
+  const { pushToast } = useToast();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [skillsInput, setSkillsInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -20,15 +21,14 @@ export default function CandidateDashboard() {
         setProfile(data.profile);
         setSkillsInput(data.profile?.skills?.join(", ") || "");
       })
-      .catch(() => undefined);
-  }, [token]);
+      .catch((err) => pushToast((err as Error).message, "error"));
+  }, [token, pushToast]);
 
   const onSave = async (event: FormEvent) => {
     event.preventDefault();
     if (!token) return;
 
     setLoading(true);
-    setMessage(null);
     try {
       const payload = {
         phone: profile?.phone || "",
@@ -38,9 +38,9 @@ export default function CandidateDashboard() {
       } as Partial<CandidateProfile>;
       const data = await upsertCandidateProfile(token, payload);
       setProfile(data.profile);
-      setMessage("Profile saved.");
+      pushToast("Profile updated.", "success");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export default function CandidateDashboard() {
 
   const onUploadCv = async () => {
     if (!token || !cvFile) {
-      setMessage("Select a PDF first.");
+      pushToast("Select a PDF file first.", "error");
       return;
     }
 
@@ -58,9 +58,9 @@ export default function CandidateDashboard() {
       setLoading(true);
       const data = await uploadCandidateCv(token, formData);
       setProfile(data.profile);
-      setMessage("CV uploaded.");
+      pushToast("CV uploaded.", "success");
     } catch (err) {
-      setMessage((err as Error).message);
+      pushToast((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,6 @@ export default function CandidateDashboard() {
             onChange={(e) => setProfile({ ...(profile || { skills: [] }), bio: e.target.value })}
           />
         </div>
-        {message && <div className="notice">{message}</div>}
         <button className="button" type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save profile"}
         </button>
