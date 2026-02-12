@@ -1,15 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { User } from "@/lib/types";
-import { getStoredToken, clearStoredToken, storeToken } from "@/lib/auth";
+import type { Response, User } from "@/lib/types";
+import { getStoredToken, clearAuthStorage, clearStoredToken, storeToken } from "@/lib/auth";
 import { authMe, loginUser, registerUser } from "@/lib/api";
 
 interface AuthContextValue {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<Response>;
   register: (payload: { name: string; email: string; password: string; role: string }) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
@@ -53,6 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     storeToken(data.token);
     setToken(data.token);
     setUser(data.user);
+    return data;
   };
 
   const register = async (payload: { name: string; email: string; password: string; role: string }) => {
@@ -60,9 +61,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
-    clearStoredToken();
+    clearAuthStorage();
     setToken(null);
     setUser(null);
+    setLoading(false);
   };
 
   const value = useMemo(

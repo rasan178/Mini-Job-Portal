@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   color-scheme: light;
   --bg: #f6f3ee;
@@ -225,36 +227,6 @@ main {
   background: #fff0e4;
   border: 1px solid #f0c5ad;
   font-size: 0.9rem;
-}
-
-.toast-stack {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 9999;
-  display: grid;
-  gap: 10px;
-  max-width: min(90vw, 360px);
-}
-
-.toast {
-  border-radius: 12px;
-  padding: 11px 13px;
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
-  font-size: 0.9rem;
-}
-
-.toast-success {
-  background: #248a3d;
-}
-
-.toast-error {
-  background: #b42318;
-}
-
-.toast-info {
-  background: #2a5b9b;
 }
 
 @media (max-width: 720px) {

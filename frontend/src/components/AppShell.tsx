@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 const NavLink = ({ href, label }: { href: string; label: string }) => {
@@ -15,7 +15,15 @@ const NavLink = ({ href, label }: { href: string; label: string }) => {
 };
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
+  const router = useRouter();
   const { user, logout, loading } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    router.replace("/");
+  };
 
   return (
     <>
@@ -45,7 +53,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
               <NavLink href="/admin" label="Admin" />
             )}
             {!loading && user && (
-              <button className="button ghost small" onClick={logout} type="button">
+              <button className="button ghost small" onClick={handleLogout} type="button">
                 Logout
               </button>
             )}

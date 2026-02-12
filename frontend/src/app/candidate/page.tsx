@@ -1,18 +1,18 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/context/ToastContext";
 import { getCandidateProfile, upsertCandidateProfile, uploadCandidateCv } from "@/lib/api";
 import type { CandidateProfile } from "@/lib/types";
 
 export default function CandidateDashboard() {
   const { token, user } = useAuth();
-  const { pushToast } = useToast();
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [skillsInput, setSkillsInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const cvInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -21,8 +21,8 @@ export default function CandidateDashboard() {
         setProfile(data.profile);
         setSkillsInput(data.profile?.skills?.join(", ") || "");
       })
-      .catch((err) => pushToast((err as Error).message, "error"));
-  }, [token, pushToast]);
+      .catch((err) => setMessage((err as Error).message));
+  }, [token]);
 
   const onSave = async (event: FormEvent) => {
     event.preventDefault();
@@ -34,13 +34,16 @@ export default function CandidateDashboard() {
         phone: profile?.phone || "",
         location: profile?.location || "",
         bio: profile?.bio || "",
-        skills: skillsInput,
+        skills: skillsInput
+          .split(",")
+          .map((skill) => skill.trim())
+          .filter(Boolean),
       } as Partial<CandidateProfile>;
       const data = await upsertCandidateProfile(token, payload);
       setProfile(data.profile);
-      pushToast("Profile updated.", "success");
+      setMessage("Profile updated.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -48,7 +51,7 @@ export default function CandidateDashboard() {
 
   const onUploadCv = async () => {
     if (!token || !cvFile) {
-      pushToast("Select a PDF file first.", "error");
+      setMessage("Select a PDF file first.");
       return;
     }
 
@@ -58,9 +61,9 @@ export default function CandidateDashboard() {
       setLoading(true);
       const data = await uploadCandidateCv(token, formData);
       setProfile(data.profile);
-      pushToast("CV uploaded.", "success");
+      setMessage("CV uploaded.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -111,22 +114,31 @@ export default function CandidateDashboard() {
           <textarea
             className="textarea"
             value={profile?.bio || ""}
-            onChange={(e) => setProfile({ ...(profile || { skills: [] }), bio: e.target.value })}
+            onChange={(e) => setProfile({ ...( profile || { skills: [] }), bio: e.target.value })}
           />
         </div>
+        {message && <div className="notice">{message}</div>}
         <button className="button" type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save profile"}
         </button>
       </form>
 
-      <div className="card stack">
+      <div className="card gap-20 flex flex-col h-full justify-between">
         <h3>Upload CV (PDF)</h3>
         <input
+          ref={cvInputRef}
           className="input"
           type="file"
           accept="application/pdf"
+          style={{ display: "none" }}
           onChange={(e) => setCvFile(e.target.files?.[0] || null)}
         />
+        <div className="flex flex-col flex-wrap items-center justify-center gap-3 border rounded-lg px-4 py-3 min-h-14 h-full border-[#EEEDED]">
+          <button className="button ghost small" type="button" onClick={() => cvInputRef.current?.click()}>
+            Choose File
+          </button>
+          <span className="status">{cvFile ? cvFile.name : "No file chosen"}</span>
+        </div>
         {profile?.cvUrl && (
           <a className="button ghost small" href={profile.cvUrl} target="_blank" rel="noreferrer">
             View current CV

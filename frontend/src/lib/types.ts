@@ -5,8 +5,13 @@ export interface User {
   name: string;
 }
 
+export interface Response {
+  "token": string,
+  "user": User
+}
+
 export interface CandidateProfile {
-  userId: string;
+  userId?: string;
   phone?: string;
   location?: string;
   skills: string[];
@@ -15,7 +20,7 @@ export interface CandidateProfile {
 }
 
 export interface EmployerProfile {
-  userId: string;
+  userId?: string;
   companyName: string;
   description?: string;
   website?: string;

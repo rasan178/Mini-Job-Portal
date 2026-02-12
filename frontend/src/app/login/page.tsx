@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { Response } from "@/lib/types";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<Response | null>(null);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -24,7 +26,9 @@ export default function LoginPage() {
 
     try {
       setLoading(true);
-      await login(email, password);
+      const resp = await login(email, password);
+      setUser(resp);
+      localStorage.setItem("userId", resp.user.id);
       router.push("/jobs");
     } catch (err) {
       setError((err as Error).message);
@@ -46,6 +50,7 @@ export default function LoginPage() {
           <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && <div className="notice">{error}</div>}
+        {user && <div className="notice">Logged in as {user.user.email}</div>}
         <button className="button" type="submit" disabled={loading}>
           {loading ? "Signing in..." : "Login"}
         </button>

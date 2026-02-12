@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/context/ToastContext";
 import { adminDeleteJob, listAdminJobs } from "@/lib/api";
 import type { Job } from "@/lib/types";
 
 export default function AdminPage() {
   const { token, user } = useAuth();
-  const { pushToast } = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = useMemo(() => {
@@ -29,11 +28,11 @@ export default function AdminPage() {
       const data = await listAdminJobs(token);
       setJobs(data.jobs);
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [token, isAdmin, pushToast]);
+  }, [token, isAdmin]);
 
   useEffect(() => {
     void loadJobs();
@@ -41,15 +40,12 @@ export default function AdminPage() {
 
   const onDelete = async (id: string) => {
     if (!token) return;
-    const confirmed = window.confirm("Delete this job permanently?");
-    if (!confirmed) return;
-
     try {
       await adminDeleteJob(token, id);
       setJobs((prev) => prev.filter((job) => job._id !== id));
-      pushToast("Job deleted by admin.", "success");
+      setError(null);
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setError((err as Error).message);
     }
   };
 
@@ -61,6 +57,7 @@ export default function AdminPage() {
     <div className="stack">
       <h2>Admin Moderation</h2>
       {loading && <div className="notice">Loading jobs...</div>}
+      {error && <div className="notice">{error}</div>}
       <div className="card">
         <table className="table">
           <thead>

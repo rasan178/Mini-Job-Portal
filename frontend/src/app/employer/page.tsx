@@ -2,7 +2,6 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/context/ToastContext";
 import {
   createJob,
   deleteJob,
@@ -13,15 +12,23 @@ import {
   updateJob,
   upsertEmployerProfile,
 } from "@/lib/api";
-import type { Application, EmployerProfile, Job } from "@/lib/types";
+import type { Application, EmployerProfile, Job, JobType } from "@/lib/types";
+
+type JobFormState = {
+  title: string;
+  description: string;
+  location: string;
+  jobType: JobType;
+  salaryRange: string;
+};
 
 export default function EmployerDashboard() {
   const { token, user } = useAuth();
-  const { pushToast } = useToast();
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [message, setMessage] = useState<string | null>(null);
+  const [createForm, setCreateForm] = useState<JobFormState>({
     title: "",
     description: "",
     location: "",
@@ -40,11 +47,11 @@ export default function EmployerDashboard() {
       ]);
       setProfile(profileData.profile);
       setJobs(jobsData.jobs || []);
-      pushToast("Employer dashboard loaded.", "info");
+      setMessage(null);
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     }
-  }, [token, pushToast]);
+  }, [token]);
 
   useEffect(() => {
     void loadAll();
@@ -57,9 +64,9 @@ export default function EmployerDashboard() {
     try {
       const data = await upsertEmployerProfile(token, profile || { companyName: "" });
       setProfile(data.profile);
-      pushToast("Profile updated.", "success");
+      setMessage("Profile updated.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -73,9 +80,9 @@ export default function EmployerDashboard() {
       const data = await createJob(token, createForm);
       setJobs((prev) => [data.job, ...prev]);
       setCreateForm({ title: "", description: "", location: "", jobType: "Internship", salaryRange: "" });
-      pushToast("Job created.", "success");
+      setMessage("Job created.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -88,9 +95,9 @@ export default function EmployerDashboard() {
       const data = await updateJob(token, job._id, job);
       setJobs((prev) => prev.map((item) => (item._id === job._id ? data.job : item)));
       setEditingJobId(null);
-      pushToast("Job updated.", "success");
+      setMessage("Job updated.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -98,15 +105,13 @@ export default function EmployerDashboard() {
 
   const onDeleteJob = async (jobId: string) => {
     if (!token) return;
-    const confirmed = window.confirm("Delete this job permanently?");
-    if (!confirmed) return;
     setLoading(true);
     try {
       await deleteJob(token, jobId);
       setJobs((prev) => prev.filter((job) => job._id !== jobId));
-      pushToast("Job deleted.", "success");
+      setMessage("Job deleted.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -117,9 +122,9 @@ export default function EmployerDashboard() {
     try {
       const data = await listApplicantsForJob(token, jobId);
       setApplicants((prev) => ({ ...prev, [jobId]: data.applications }));
-      pushToast("Applicants loaded.", "info");
+      setMessage("Applicants loaded.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     }
   };
 
@@ -131,9 +136,9 @@ export default function EmployerDashboard() {
         ...prev,
         [jobId]: prev[jobId]?.map((app) => (app._id === data.application._id ? data.application : app)) || [],
       }));
-      pushToast("Application status updated.", "success");
+      setMessage("Application status updated.");
     } catch (err) {
-      pushToast((err as Error).message, "error");
+      setMessage((err as Error).message);
     }
   };
 
@@ -176,6 +181,7 @@ export default function EmployerDashboard() {
               onChange={(e) => setProfile({ ...(profile || { companyName: "" }), website: e.target.value })}
             />
           </div>
+          {message && <div className="notice">{message}</div>}
           <button className="button" type="submit" disabled={loading}>
             {loading ? "Saving..." : "Save profile"}
           </button>
@@ -212,7 +218,7 @@ export default function EmployerDashboard() {
             <select
               className="select"
               value={createForm.jobType}
-              onChange={(e) => setCreateForm({ ...createForm, jobType: e.target.value })}
+              onChange={(e) => setCreateForm({ ...createForm, jobType: e.target.value as JobType })}
             >
               <option value="Internship">Internship</option>
               <option value="Full-time">Full-time</option>
@@ -275,14 +281,7 @@ export default function EmployerDashboard() {
                 <h3>{job.title}</h3>
                 <p className="status">{job.location} · {job.jobType}</p>
                 <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
-                  <button
-                    className="button ghost small"
-                    type="button"
-                    onClick={() => {
-                      setEditingJobId(job._id);
-                      pushToast("Edit mode enabled.", "info");
-                    }}
-                  >
+                  <button className="button ghost small" type="button" onClick={() => setEditingJobId(job._id)}>
                     Edit
                   </button>
                   <button className="button ghost small" type="button" onClick={() => onDeleteJob(job._id)}>
