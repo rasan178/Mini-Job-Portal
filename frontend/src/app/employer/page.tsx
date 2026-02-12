@@ -56,7 +56,16 @@ export default function EmployerDashboard() {
     salaryRange: "",
   });
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<JobFormState>({
+    title: "",
+    description: "",
+    location: "",
+    jobType: "Internship",
+    salaryRange: "",
+  });
   const [applicants, setApplicants] = useState<Record<string, Application[]>>({});
+  const [applicantsModalJob, setApplicantsModalJob] = useState<Job | null>(null);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -110,12 +119,18 @@ export default function EmployerDashboard() {
     }
   };
 
-  const onUpdateJob = async (job: Job) => {
-    if (!token) return;
+  const onUpdateJob = async () => {
+    if (!token || !editingJobId) return;
     setLoading(true);
     try {
-      const data = await updateJob(token, job._id, job);
-      setJobs((prev) => prev.map((item) => (item._id === job._id ? data.job : item)));
+      const data = await updateJob(token, editingJobId, {
+        title: editForm.title,
+        description: editForm.description,
+        location: editForm.location,
+        jobType: editForm.jobType,
+        salaryRange: editForm.salaryRange,
+      });
+      setJobs((prev) => prev.map((item) => (item._id === editingJobId ? data.job : item)));
       setEditingJobId(null);
       toast.success("Job updated.");
     } catch (err) {
@@ -139,14 +154,17 @@ export default function EmployerDashboard() {
     }
   };
 
-  const loadApplicants = async (jobId: string) => {
+  const loadApplicants = async (job: Job) => {
     if (!token) return;
+    setApplicantsModalJob(job);
     try {
-      const data = await listApplicantsForJob(token, jobId);
-      setApplicants((prev) => ({ ...prev, [jobId]: data.applications }));
-      toast.success("Applicants loaded.");
+      setLoadingApplicants(true);
+      const data = await listApplicantsForJob(token, job._id);
+      setApplicants((prev) => ({ ...prev, [job._id]: data.applications }));
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setLoadingApplicants(false);
     }
   };
 
@@ -193,6 +211,22 @@ export default function EmployerDashboard() {
       current.website !== initialProfile.website
     );
   }, [profile, initialProfile]);
+
+  const editingJob = useMemo(
+    () => jobs.find((job) => job._id === editingJobId) || null,
+    [jobs, editingJobId]
+  );
+
+  const hasEditJobChanges = useMemo(() => {
+    if (!editingJob) return false;
+    return (
+      editForm.title !== editingJob.title ||
+      editForm.description !== editingJob.description ||
+      editForm.location !== editingJob.location ||
+      editForm.jobType !== editingJob.jobType ||
+      editForm.salaryRange !== (editingJob.salaryRange || "")
+    );
+  }, [editForm, editingJob]);
 
   if (roleMessage) {
     return <div className="notice">{roleMessage}</div>;
@@ -308,121 +342,188 @@ export default function EmployerDashboard() {
         {jobs.length === 0 && <div className="status">No jobs yet. Create one above.</div>}
         {jobs.map((job) => (
           <div className="card" key={job._id} style={{ boxShadow: "none" }}>
-            {editingJobId === job._id ? (
-              <div className="stack">
-                <input
-                  className="input"
-                  value={job.title}
-                  onChange={(e) =>
-                    setJobs((prev) =>
-                      prev.map((item) => (item._id === job._id ? { ...item, title: e.target.value } : item))
-                    )
-                  }
-                />
-                <textarea
-                  className="textarea"
-                  value={job.description}
-                  onChange={(e) =>
-                    setJobs((prev) =>
-                      prev.map((item) => (item._id === job._id ? { ...item, description: e.target.value } : item))
-                    )
-                  }
-                />
-                <input
-                  className="input"
-                  value={job.location}
-                  onChange={(e) =>
-                    setJobs((prev) =>
-                      prev.map((item) => (item._id === job._id ? { ...item, location: e.target.value } : item))
-                    )
-                  }
-                />
+            <div>
+              <h3>{job.title}</h3>
+              <p className="status">{job.location} · {job.jobType}</p>
+              <div className="gap-[10px] mt-[10px] flex items-center w-full">
                 <button
-                  className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                  className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
                   style={{ paddingTop: 12, paddingBottom: 12 }}
                   type="button"
-                  onClick={() => onUpdateJob(job)}
+                  onClick={() => {
+                    setEditingJobId(job._id);
+                    setEditForm({
+                      title: job.title,
+                      description: job.description,
+                      location: job.location,
+                      jobType: job.jobType,
+                      salaryRange: job.salaryRange || "",
+                    });
+                  }}
                 >
-                  Save
+                  Edit
+                </button>
+                <button
+                  className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                  style={{ paddingTop: 12, paddingBottom: 12 }}
+                  type="button"
+                  onClick={() => setJobToDelete(job)}
+                >
+                  Delete
+                </button>
+                <button
+                  className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                  style={{ paddingTop: 12, paddingBottom: 12 }}
+                  type="button"
+                  onClick={() => loadApplicants(job)}
+                >
+                  View applicants
                 </button>
               </div>
-            ) : (
-              <div>
-                <h3>{job.title}</h3>
-                <p className="status">{job.location} · {job.jobType}</p>
-                <div className="gap-[10px] mt-[10px] flex items-center w-full">
-                  <button
-                    className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-                    style={{ paddingTop: 12, paddingBottom: 12 }}
-                    type="button"
-                    onClick={() => setEditingJobId(job._id)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-                    style={{ paddingTop: 12, paddingBottom: 12 }}
-                    type="button"
-                    onClick={() => setJobToDelete(job)}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-                    style={{ paddingTop: 12, paddingBottom: 12 }}
-                    type="button"
-                    onClick={() => loadApplicants(job._id)}
-                  >
-                    View applicants
-                  </button>
-                </div>
-              </div>
-            )}
-            {applicants[job._id] && (
-              <div style={{ marginTop: "14px" }}>
-                <h4>Applicants</h4>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applicants[job._id].map((app) => {
-                      const candidate = typeof app.candidateId === "string" ? null : app.candidateId;
-                      const isShortlisted = app.status === "Shortlisted";
-                      const isRejected = app.status === "Rejected";
-                      return (
-                        <tr key={app._id}>
-                          <td>{candidate?.name || "Candidate"}</td>
-                          <td>{candidate?.email || "-"}</td>
-                          <td>
-                            <select
-                              className="select"
-                              value={app.status}
-                              onChange={(e) => onStatusChange(app._id, job._id, e.target.value)}
-                            >
-                              <option value="Pending" disabled={isShortlisted || isRejected}>
-                                Pending
-                              </option>
-                              <option value="Shortlisted" disabled={isRejected}>
-                                Shortlisted
-                              </option>
-                              <option value="Rejected">Rejected</option>
-                            </select>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            </div>
           </div>
         ))}
       </div>
+      {applicantsModalJob && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="applicants-title">
+          <div className="confirm-modal stack" style={{ width: "min(900px, 100%)", maxHeight: "85vh", overflowY: "auto" }}>
+            <div className="flex items-center justify-between">
+              <h3 id="applicants-title">Applicants - {applicantsModalJob.title}</h3>
+              <button
+                className="w-full bg-[red] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                style={{ paddingTop: 12, paddingBottom: 12, maxWidth: 140 }}
+                type="button"
+                onClick={() => setApplicantsModalJob(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            {loadingApplicants ? (
+              <div className="notice">Loading applicants...</div>
+            ) : (
+              <>
+                {(applicants[applicantsModalJob._id] || []).length === 0 ? (
+                  <div className="status">No applicants yet.</div>
+                ) : (
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(applicants[applicantsModalJob._id] || []).map((app) => {
+                        const candidate = typeof app.candidateId === "string" ? null : app.candidateId;
+                        const isShortlisted = app.status === "Shortlisted";
+                        const isRejected = app.status === "Rejected";
+                        return (
+                          <tr key={app._id}>
+                            <td>{candidate?.name || "Candidate"}</td>
+                            <td>{candidate?.email || "-"}</td>
+                            <td>
+                              <select
+                                className="select"
+                                value={app.status}
+                                onChange={(e) => onStatusChange(app._id, applicantsModalJob._id, e.target.value)}
+                              >
+                                <option value="Pending" disabled={isShortlisted || isRejected}>
+                                  Pending
+                                </option>
+                                <option value="Shortlisted" disabled={isRejected}>
+                                  Shortlisted
+                                </option>
+                                <option value="Rejected">Rejected</option>
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {editingJobId && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-job-title">
+          <div className="confirm-modal stack" style={{ width: "min(640px, 100%)" }}>
+            <h3 id="edit-job-title">Edit Job</h3>
+            <div className="field">
+              <label className="label">Title</label>
+              <input
+                className="input"
+                value={editForm.title}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label className="label">Description</label>
+              <textarea
+                className="textarea"
+                value={editForm.description}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label className="label">Location</label>
+              <input
+                className="input"
+                value={editForm.location}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label className="label">Job type</label>
+              <select
+                className="select"
+                value={editForm.jobType}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, jobType: e.target.value as JobType }))}
+              >
+                <option value="Internship">Internship</option>
+                <option value="Full-time">Full-time</option>
+              </select>
+            </div>
+            <div className="field">
+              <label className="label">Salary range (optional)</label>
+              <input
+                className="input"
+                value={editForm.salaryRange}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, salaryRange: e.target.value }))}
+              />
+            </div>
+            <div className="confirm-actions">
+              <button
+                className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                style={{ paddingTop: 12, paddingBottom: 12 }}
+                type="button"
+                onClick={() => setEditingJobId(null)}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                style={{
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  opacity: !hasEditJobChanges ? 0.5 : 1,
+                  cursor: !hasEditJobChanges ? "not-allowed" : "pointer",
+                }}
+                type="button"
+                onClick={onUpdateJob}
+                disabled={loading || !hasEditJobChanges}
+              >
+                {loading ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ConfirmModal
         open={!!jobToDelete}
         title="Delete Job?"
