@@ -24,9 +24,28 @@ type JobFormState = {
   salaryRange: string;
 };
 
+type EmployerProfileSnapshot = {
+  companyName: string;
+  description: string;
+  website: string;
+};
+
+const normalizeEmployerProfile = (
+  profile: EmployerProfile | null | undefined
+): EmployerProfileSnapshot => ({
+  companyName: profile?.companyName || "",
+  description: profile?.description || "",
+  website: profile?.website || "",
+});
+
 export default function EmployerDashboard() {
   const { token, user } = useAuth();
   const [profile, setProfile] = useState<EmployerProfile | null>(null);
+  const [initialProfile, setInitialProfile] = useState<EmployerProfileSnapshot>({
+    companyName: "",
+    description: "",
+    website: "",
+  });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [createForm, setCreateForm] = useState<JobFormState>({
@@ -48,6 +67,7 @@ export default function EmployerDashboard() {
         listMyJobs(token),
       ]);
       setProfile(profileData.profile);
+      setInitialProfile(normalizeEmployerProfile(profileData.profile));
       setJobs(jobsData.jobs || []);
     } catch (err) {
       toast.error((err as Error).message);
@@ -65,6 +85,7 @@ export default function EmployerDashboard() {
     try {
       const data = await upsertEmployerProfile(token, profile || { companyName: "" });
       setProfile(data.profile);
+      setInitialProfile(normalizeEmployerProfile(data.profile));
       toast.success("Profile updated.");
     } catch (err) {
       toast.error((err as Error).message);
@@ -155,6 +176,24 @@ export default function EmployerDashboard() {
     return null;
   }, [user]);
 
+  const hasCreateJobInput = useMemo(() => {
+    return (
+      createForm.title.trim().length > 0 ||
+      createForm.description.trim().length > 0 ||
+      createForm.location.trim().length > 0 ||
+      createForm.salaryRange.trim().length > 0
+    );
+  }, [createForm]);
+
+  const hasProfileChanges = useMemo(() => {
+    const current = normalizeEmployerProfile(profile);
+    return (
+      current.companyName !== initialProfile.companyName ||
+      current.description !== initialProfile.description ||
+      current.website !== initialProfile.website
+    );
+  }, [profile, initialProfile]);
+
   if (roleMessage) {
     return <div className="notice">{roleMessage}</div>;
   }
@@ -190,9 +229,14 @@ export default function EmployerDashboard() {
           </div>
           <button
             className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-            style={{ paddingTop: 12, paddingBottom: 12 }}
+            style={{
+              paddingTop: 12,
+              paddingBottom: 12,
+              opacity: !hasProfileChanges ? 0.5 : 1,
+              cursor: !hasProfileChanges ? "not-allowed" : "pointer",
+            }}
             type="submit"
-            disabled={loading}
+            disabled={loading || !hasProfileChanges}
           >
             {loading ? "Saving..." : "Save profile"}
           </button>
@@ -245,9 +289,14 @@ export default function EmployerDashboard() {
           </div>
           <button
             className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-            style={{ paddingTop: 12, paddingBottom: 12 }}
+            style={{
+              paddingTop: 12,
+              paddingBottom: 12,
+              opacity: !hasCreateJobInput ? 0.5 : 1,
+              cursor: !hasCreateJobInput ? "not-allowed" : "pointer",
+            }}
             type="submit"
-            disabled={loading}
+            disabled={loading || !hasCreateJobInput}
           >
             {loading ? "Posting..." : "Create job"}
           </button>
