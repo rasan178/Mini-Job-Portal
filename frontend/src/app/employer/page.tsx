@@ -135,7 +135,13 @@ export default function EmployerDashboard() {
       const data = await updateApplicationStatus(token, appId, status);
       setApplicants((prev) => ({
         ...prev,
-        [jobId]: prev[jobId]?.map((app) => (app._id === data.application._id ? data.application : app)) || [],
+        [jobId]:
+          prev[jobId]?.map((app) => {
+            if (app._id !== data.application._id) return app;
+            const returned = data.application as Application;
+            const candidateField = typeof returned.candidateId === "string" ? app.candidateId : returned.candidateId;
+            return { ...returned, candidateId: candidateField } as Application;
+          }) || [],
       }));
       toast.success("Application status updated.");
     } catch (err) {
@@ -156,7 +162,7 @@ export default function EmployerDashboard() {
   return (
     <div className="stack">
       <div className="grid grid-2">
-        <form className="card stack" onSubmit={onSaveProfile}>
+        <form className="card h-full flex flex-col justify-between" onSubmit={onSaveProfile}>
           <h2>Employer Profile</h2>
           <div className="field">
             <label className="label">Company name</label>
@@ -183,7 +189,8 @@ export default function EmployerDashboard() {
             />
           </div>
           <button
-            className="button"
+            className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+            style={{ paddingTop: 12, paddingBottom: 12 }}
             type="submit"
             disabled={loading}
           >
@@ -294,9 +301,9 @@ export default function EmployerDashboard() {
               <div>
                 <h3>{job.title}</h3>
                 <p className="status">{job.location} · {job.jobType}</p>
-                <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
+                <div className="gap-[10px] mt-[10px] flex items-center w-full">
                   <button
-                    className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                    className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
                     style={{ paddingTop: 12, paddingBottom: 12 }}
                     type="button"
                     onClick={() => setEditingJobId(job._id)}
@@ -304,7 +311,7 @@ export default function EmployerDashboard() {
                     Edit
                   </button>
                   <button
-                    className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                    className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
                     style={{ paddingTop: 12, paddingBottom: 12 }}
                     type="button"
                     onClick={() => setJobToDelete(job)}
@@ -312,7 +319,7 @@ export default function EmployerDashboard() {
                     Delete
                   </button>
                   <button
-                    className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
+                    className="w-[60%] bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
                     style={{ paddingTop: 12, paddingBottom: 12 }}
                     type="button"
                     onClick={() => loadApplicants(job._id)}
@@ -336,6 +343,8 @@ export default function EmployerDashboard() {
                   <tbody>
                     {applicants[job._id].map((app) => {
                       const candidate = typeof app.candidateId === "string" ? null : app.candidateId;
+                      const isShortlisted = app.status === "Shortlisted";
+                      const isRejected = app.status === "Rejected";
                       return (
                         <tr key={app._id}>
                           <td>{candidate?.name || "Candidate"}</td>
@@ -346,8 +355,12 @@ export default function EmployerDashboard() {
                               value={app.status}
                               onChange={(e) => onStatusChange(app._id, job._id, e.target.value)}
                             >
-                              <option value="Pending">Pending</option>
-                              <option value="Shortlisted">Shortlisted</option>
+                              <option value="Pending" disabled={isShortlisted || isRejected}>
+                                Pending
+                              </option>
+                              <option value="Shortlisted" disabled={isRejected}>
+                                Shortlisted
+                              </option>
                               <option value="Rejected">Rejected</option>
                             </select>
                           </td>
