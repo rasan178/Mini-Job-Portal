@@ -26,7 +26,7 @@ Frontend (this folder)
 ```bash
 cd frontend
 npm install
-# copy or create .env.local (see ENV section below)
+# copy or create .env (see ENV section below)
 npm run dev
 # open http://localhost:3000
 ```
@@ -49,11 +49,34 @@ Notes
 
 ## Tech stack
 
-- Frontend: Next.js (app router), React, TypeScript, Tailwind CSS
+- Frontend: Next.js (app router), TypeScript, Tailwind CSS
 - Backend: Node.js, Express, TypeScript, Mongoose (MongoDB)
 - Authentication: JWT (issued by backend)
 - File storage: Firebase Storage (via firebase-admin) for CV uploads
 - Emails: Nodemailer (SMTP) for welcome + status emails
+
+----
+
+## Why Option B (Node.js + MongoDB) over Option A (Firebase)?
+
+**Option B was chosen** for this project because it provides:
+
+1. **Custom business logic** — The app has complex workflows (job posting, application tracking, status transitions with email notifications) that are easier to implement in a dedicated backend than Firebase cloud functions.
+
+2. **More flexible role management** — Three distinct roles (candidate, employer, admin) with different permissions require custom authorization logic per endpoint. Node.js + Express middleware is more straightforward than Firebase security rules.
+
+3. **Email notifications as a core feature** — Status updates trigger emails to candidates. Nodemailer + SMTP is simpler to test locally than Firebase cloud functions + external SMTP.
+
+4. **Hybrid approach** — Uses Firebase *Storage* (not Firestore) for PDF uploads, getting the best of both: managed file storage without vendor lock-in on the database.
+
+5. **Team preference** — Easier to debug and extend; developers can inspect logs, middleware, and controllers directly.
+
+**Option A would be faster if:**
+- The app had no backend logic (purely CRUD).
+- File storage was the only backend requirement.
+- Your team prefers serverless deployments (no server management).
+
+**Current trade-off:** Option B requires running a MongoDB instance and a Node.js backend, but gives full control over features, auth, and business rules.
 
 ----
 
@@ -133,17 +156,17 @@ Common password used below: `Password123!` (for local testing only)
 Frontend (use these to login at the UI)
 - Candidate
   - Email: `candidate@example.com`
-  - Password: `Password123!`
+  - Password: `candidate123`
   - Name: `Test Candidate`
 
 - Employer
   - Email: `employer@example.com`
-  - Password: `Password123!`
+  - Password: `employer123`
   - Name: `Test Employer`
 
 - Admin
   - Email: `admin@example.com`
-  - Password: `Password123!`
+  - Password: `admind123`
   - Name: `Admin User`
 
 Notes
