@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { listJobsPublic } from "@/lib/api";
 import type { Job } from "@/lib/types";
@@ -12,6 +12,14 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filters, setFilters] = useState({ keyword: "", location: "", jobType: "" });
   const [loading, setLoading] = useState(true);
+
+  const hasFilterInput = useMemo(() => {
+    return (
+      filters.keyword.trim().length > 0 ||
+      filters.location.trim().length > 0 ||
+      filters.jobType.trim().length > 0
+    );
+  }, [filters]);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -78,9 +86,15 @@ export default function JobsPage() {
         <div style={{ marginTop: "16px" }}>
           <button
             className="w-full bg-[#FF7F11] text-white rounded-2xl cursor-pointer text-lg font-semibold shadow-lg"
-            style={{ paddingTop: 12, paddingBottom: 12 }}
+            style={{
+              paddingTop: 12,
+              paddingBottom: 12,
+              opacity: !hasFilterInput ? 0.5 : 1,
+              cursor: !hasFilterInput ? "not-allowed" : "pointer",
+            }}
             type="button"
             onClick={loadJobs}
+            disabled={loading || !hasFilterInput}
           >
             Apply filters
           </button>
