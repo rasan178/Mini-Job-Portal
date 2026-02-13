@@ -172,7 +172,7 @@ export const sendWelcomeEmail = async ({ to, name, role }: WelcomeEmailInput) =>
   }
 
   const appName = process.env.APP_NAME || "Mini Job Portal";
-  const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  const appUrl = process.env.CORS_ORIGIN || "https://mini-job-portal-gamma.vercel.app";
   const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "";
   const email = buildWelcomeEmail({ name, role, appName, appUrl });
 
@@ -199,7 +199,7 @@ export const sendApplicationStatusEmail = async ({ to, name, jobTitle, status }:
   }
 
   const appName = process.env.APP_NAME || "Mini Job Portal";
-  const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  const appUrl = process.env.CORS_ORIGIN || "https://mini-job-portal-gamma.vercel.app";
   const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "";
   const email = buildApplicationStatusEmail({ name, jobTitle, status, appName, appUrl });
 
