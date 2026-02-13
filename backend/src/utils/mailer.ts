@@ -1,4 +1,6 @@
 import nodemailer, { type SendMailOptions } from "nodemailer";
+import dns from "node:dns";
+import net from "node:net";
 import { buildWelcomeEmail, buildApplicationStatusEmail } from "./emailTemplates";
 
 const getSmtpPort = () => {
@@ -25,21 +27,63 @@ type SmtpAttempt = {
   host: string;
   port: number;
   secure: boolean;
+  servername?: string;
 };
 
-const getSmtpAttempts = (): SmtpAttempt[] => {
+const resolveHosts = async (host: string): Promise<Array<{ host: string; servername?: string }>> => {
+  const forceIpv4 = process.env.SMTP_FORCE_IPV4 !== "false";
+
+  if (!forceIpv4 || !host || net.isIP(host)) {
+    return [{ host, servername: net.isIP(host) ? undefined : host }];
+  }
+
+  try {
+    const addresses = await dns.promises.resolve4(host);
+    const uniqueAddresses = Array.from(new Set(addresses));
+    if (!uniqueAddresses.length) {
+      return [{ host, servername: host }];
+    }
+
+    return [
+      ...uniqueAddresses.map((address) => ({ host: address, servername: host })),
+      // Keep hostname as a final fallback if direct IPv4 attempts fail.
+      { host, servername: host },
+    ];
+  } catch (error) {
+    console.warn(`Failed IPv4 DNS resolve for ${host}:`, (error as Error).message);
+    return [{ host, servername: host }];
+  }
+};
+
+const getSmtpAttempts = async (): Promise<SmtpAttempt[]> => {
   const host = process.env.SMTP_HOST || "";
   const configuredPort = getSmtpPort();
   const configuredSecure = process.env.SMTP_SECURE === "true";
-  const attempts: SmtpAttempt[] = [{ host, port: configuredPort, secure: configuredSecure }];
+  const hosts = await resolveHosts(host);
+  const attempts: SmtpAttempt[] = [];
+  const attemptKeys = new Set<string>();
+
+  const addAttempt = (item: SmtpAttempt) => {
+    const key = `${item.host}:${item.port}:${item.secure}`;
+    if (attemptKeys.has(key)) return;
+    attemptKeys.add(key);
+    attempts.push(item);
+  };
+
+  for (const item of hosts) {
+    addAttempt({
+      host: item.host,
+      port: configuredPort,
+      secure: configuredSecure,
+      servername: item.servername,
+    });
+  }
 
   // Some providers block one SMTP port. For Gmail, try both standard ports.
   if (host.includes("gmail.com")) {
-    if (!attempts.some((item) => item.port === 587)) {
-      attempts.push({ host, port: 587, secure: false });
-    }
-    if (!attempts.some((item) => item.port === 465)) {
-      attempts.push({ host, port: 465, secure: true });
+    for (const item of hosts) {
+      addAttempt({ host: item.host, port: 587, secure: false, servername: item.servername });
+      addAttempt({ host: item.host, port: 465, secure: true, servername: item.servername });
     }
   }
 
@@ -48,9 +92,11 @@ const getSmtpAttempts = (): SmtpAttempt[] => {
 
 const getTransporter = (attempt: SmtpAttempt) => {
   const rawPass = process.env.SMTP_PASS || "";
+  const configuredHost = process.env.SMTP_HOST || "";
   // Gmail app passwords are shown in grouped format; normalize accidental spaces.
-  const password = attempt.host.includes("gmail.com") ? rawPass.replace(/\s+/g, "") : rawPass;
-  return nodemailer.createTransport({
+  const password = configuredHost.includes("gmail.com") ? rawPass.replace(/\s+/g, "") : rawPass;
+
+  const transportOptions: Record<string, unknown> = {
     host: attempt.host,
     port: attempt.port,
     secure: attempt.secure,
@@ -61,7 +107,15 @@ const getTransporter = (attempt: SmtpAttempt) => {
       user: process.env.SMTP_USER,
       pass: password,
     },
-  });
+  };
+
+  if (attempt.servername) {
+    transportOptions.tls = {
+      servername: attempt.servername,
+    };
+  }
+
+  return nodemailer.createTransport(transportOptions as never);
 };
 
 const isRetryableError = (error: unknown) => {
@@ -70,12 +124,17 @@ const isRetryableError = (error: unknown) => {
   return (
     code === "ETIMEDOUT" ||
     code === "ESOCKET" ||
+    code === "ENETUNREACH" ||
+    code === "EHOSTUNREACH" ||
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    message.includes("ENETUNREACH") ||
     message.includes("Connection timeout")
   );
 };
 
 const sendMailWithRetry = async (mail: SendMailOptions) => {
-  const attempts = getSmtpAttempts();
+  const attempts = await getSmtpAttempts();
   let lastError: unknown;
 
   for (let i = 0; i < attempts.length; i += 1) {
