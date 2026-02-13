@@ -12,20 +12,26 @@ const isSmtpConfigured = () => {
   return !!(
     process.env.SMTP_HOST &&
     process.env.SMTP_USER &&
-    process.env.SMTP_PASS &&
-    process.env.EMAIL_FROM
+    process.env.SMTP_PASS
   );
 };
 
 const getTransporter = () => {
   const secure = process.env.SMTP_SECURE === "true";
+  const host = process.env.SMTP_HOST || "";
+  const rawPass = process.env.SMTP_PASS || "";
+  // Gmail app passwords are shown in grouped format; normalize accidental spaces.
+  const password = host.includes("gmail.com") ? rawPass.replace(/\s+/g, "") : rawPass;
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host,
     port: getSmtpPort(),
     secure,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      pass: password,
     },
   });
 };
@@ -44,7 +50,7 @@ export const sendWelcomeEmail = async ({ to, name, role }: WelcomeEmailInput) =>
 
   const appName = process.env.APP_NAME || "Mini Job Portal";
   const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-  const from = process.env.EMAIL_FROM || "";
+  const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "";
   const email = buildWelcomeEmail({ name, role, appName, appUrl });
   const transporter = getTransporter();
 
@@ -72,7 +78,7 @@ export const sendApplicationStatusEmail = async ({ to, name, jobTitle, status }:
 
   const appName = process.env.APP_NAME || "Mini Job Portal";
   const appUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-  const from = process.env.EMAIL_FROM || "";
+  const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "";
   const email = buildApplicationStatusEmail({ name, jobTitle, status, appName, appUrl });
   const transporter = getTransporter();
 

@@ -40,13 +40,20 @@ export const register = async (req: Request, res: Response) => {
     name,
   });
 
-  void sendWelcomeEmail({
+  const welcomeEmailPromise = sendWelcomeEmail({
     to: user.email,
     name: user.name,
     role: user.role,
   }).catch((error) => {
     console.error("Failed to send welcome email:", error);
   });
+  const emailTimeoutMs = Number(process.env.WELCOME_EMAIL_TIMEOUT_MS || 3000);
+  await Promise.race([
+    welcomeEmailPromise,
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, emailTimeoutMs);
+    }),
+  ]);
 
   return res.status(201).json({
 
