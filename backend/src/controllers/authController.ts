@@ -40,15 +40,13 @@ export const register = async (req: Request, res: Response) => {
     name,
   });
 
-  try {
-    await sendWelcomeEmail({
-      to: user.email,
-      name: user.name,
-      role: user.role,
-    });
-  } catch (error) {
+  void sendWelcomeEmail({
+    to: user.email,
+    name: user.name,
+    role: user.role,
+  }).catch((error) => {
     console.error("Failed to send welcome email:", error);
-  }
+  });
 
   return res.status(201).json({
 
