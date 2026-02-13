@@ -43,7 +43,7 @@ npm run dev
 
 Notes
 - Frontend expects the backend API base URL in `NEXT_PUBLIC_API_URL` (default http://localhost:8080).
-- If SMTP is configured in the backend `.env`, welcome and status emails will be sent.
+- SMTP works locally, but Render does not support outbound SMTP in this setup.
 
 ----
 
@@ -53,7 +53,7 @@ Notes
 - Backend: Node.js, Express, TypeScript, Mongoose (MongoDB)
 - Authentication: JWT (issued by backend)
 - File storage: Firebase Storage (via firebase-admin) for CV uploads
-- Emails: Nodemailer (SMTP) for welcome + status emails
+- Emails: SMTP for local development, email API provider for hosted deployments (e.g. Render)
 
 ----
 
@@ -101,8 +101,9 @@ Firebase / Google credentials (for file uploads)
 - `FIREBASE_CLIENT_EMAIL` — optional
 - `FIREBASE_PRIVATE_KEY` — optional (use `\\n` escaped newlines) OR set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON path
 
-SMTP (optional, required for sending emails)
+SMTP (local development only)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` (true/false), `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`
+- Not supported on Render deployment in this project. SMTP mail sending is local-only.
 
 ----
 
