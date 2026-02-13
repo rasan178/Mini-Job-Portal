@@ -19,9 +19,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
+const allowedOrigins = corsOrigin
+  .split(",")
+  .map(normalizeOrigin)
+  .filter(Boolean);
+const allowAnyOrigin = allowedOrigins.includes("*");
+
 app.use(
   cors({
-    origin: corsOrigin === "*" ? true : corsOrigin,
+    origin: (origin, callback) => {
+      // Allow non-browser and same-origin requests (no Origin header present).
+      if (!origin || allowAnyOrigin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(normalizeOrigin(origin))) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
