@@ -48,6 +48,9 @@ export default function EmployerDashboard() {
   });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
   const [createForm, setCreateForm] = useState<JobFormState>({
     title: "",
     description: "",
@@ -90,7 +93,7 @@ export default function EmployerDashboard() {
   const onSaveProfile = async (event: FormEvent) => {
     event.preventDefault();
     if (!token) return;
-    setLoading(true);
+    setLoadingProfile(true);
     try {
       const data = await upsertEmployerProfile(token, profile || { companyName: "" });
       setProfile(data.profile);
@@ -99,7 +102,7 @@ export default function EmployerDashboard() {
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
-      setLoading(false);
+      setLoadingProfile(false);
     }
   };
 
@@ -121,7 +124,7 @@ export default function EmployerDashboard() {
 
   const onUpdateJob = async () => {
     if (!token || !editingJobId) return;
-    setLoading(true);
+    setLoadingEdit(true);
     try {
       const data = await updateJob(token, editingJobId, {
         title: editForm.title,
@@ -136,13 +139,13 @@ export default function EmployerDashboard() {
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
-      setLoading(false);
+      setLoadingEdit(false);
     }
   };
 
   const onDeleteJob = async (jobId: string) => {
     if (!token) return;
-    setLoading(true);
+    setLoadingDelete(true);
     try {
       await deleteJob(token, jobId);
       setJobs((prev) => prev.filter((job) => job._id !== jobId));
@@ -150,7 +153,7 @@ export default function EmployerDashboard() {
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
-      setLoading(false);
+      setLoadingDelete(false);
     }
   };
 
@@ -270,9 +273,9 @@ export default function EmployerDashboard() {
               cursor: !hasProfileChanges ? "not-allowed" : "pointer",
             }}
             type="submit"
-            disabled={loading || !hasProfileChanges}
+            disabled={loadingProfile || !hasProfileChanges}
           >
-            {loading ? "Saving..." : "Save profile"}
+            {loadingProfile ? "Saving..." : "Save profile"}
           </button>
         </form>
 
@@ -516,9 +519,9 @@ export default function EmployerDashboard() {
                 }}
                 type="button"
                 onClick={onUpdateJob}
-                disabled={loading || !hasEditJobChanges}
+                disabled={loadingEdit || !hasEditJobChanges}
               >
-                {loading ? "Saving..." : "Save"}
+                {loadingEdit ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
@@ -529,7 +532,7 @@ export default function EmployerDashboard() {
         title="Delete Job?"
         description={`This will permanently delete "${jobToDelete?.title || "this job"}".`}
         confirmLabel="Delete Job"
-        isProcessing={loading}
+        isProcessing={loadingDelete}
         onCancel={() => setJobToDelete(null)}
         onConfirm={async () => {
           if (!jobToDelete) return;
